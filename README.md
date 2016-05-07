@@ -65,6 +65,7 @@ puts decoded_token
 * HS256	- HMAC using SHA-256 hash algorithm (default)
 * HS384	- HMAC using SHA-384 hash algorithm
 * HS512 - HMAC using SHA-512 hash algorithm
+* HS512256 - HMAC using SHA-512/256 hash algorithm (only available with RbNaCl; see note below)
 
 ```ruby
 hmac_secret = 'my$ecretK3y'
@@ -83,6 +84,8 @@ decoded_token = JWT.decode token, hmac_secret, true, { :algorithm => 'HS256' }
 # ]
 puts decoded_token
 ```
+
+Note: If [RbNaCl](https://github.com/cryptosphere/rbnacl) is installed, ruby-jwt will use it for HMAC-SHA256 and HMAC-SHA512/256. RbNaCl enforces a maximum key size of 32 bytes for both algorithms.
 
 **RSA**
 

@@ -1,5 +1,9 @@
 require 'base64'
 require 'openssl'
+begin
+  require 'rbnacl'
+rescue LoadError
+end
 require 'jwt/decode'
 require 'jwt/error'
 require 'jwt/json'
@@ -19,16 +23,20 @@ module JWT
 
   module_function
 
-  def sign(algorithm, msg, key)
-    if %w(HS256 HS384 HS512).include?(algorithm)
-      sign_hmac(algorithm, msg, key)
-    elsif %w(RS256 RS384 RS512).include?(algorithm)
-      sign_rsa(algorithm, msg, key)
-    elsif %w(ES256 ES384 ES512).include?(algorithm)
-      sign_ecdsa(algorithm, msg, key)
-    else
-      fail NotImplementedError, 'Unsupported signing method'
-    end
+  def sign(algorithm, *args)
+    sign =
+      case algorithm
+      when 'HS256', 'HS384', 'HS512', 'HS512256'
+        :sign_hmac
+      when 'RS256', 'RS384', 'RS512'
+        :sign_rsa
+      when 'ES256', 'ES384', 'ES512'
+        :sign_ecdsa
+      else
+        fail NotImplementedError, 'Unsupported signing method'
+      end
+
+    send(sign, algorithm, *args)
   end
 
   def sign_rsa(algorithm, msg, private_key)
@@ -60,7 +68,39 @@ module JWT
   end
 
   def sign_hmac(algorithm, msg, key)
+    if defined?(RbNaCl)
+      auth =
+        case algorithm
+        when 'HS256', 'HS512256'
+          algorithm.sub('HS', 'SHA')
+        end
+
+      if auth
+        key = key.encode('binary').ljust(RbNaCl::HMAC.const_get(auth).key_bytes, "\0")
+        return RbNaCl::HMAC.const_get(auth).auth(key, msg.encode('binary'))
+      end
+    end
+
     OpenSSL::HMAC.digest(OpenSSL::Digest.new(algorithm.sub('HS', 'sha')), key, msg)
+  end
+
+  def verify_hmac(algorithm, key, signing_input, signature)
+    if defined?(RbNaCl)
+      auth =
+        case algorithm
+        when 'HS256', 'HS512256'
+          algorithm.sub('HS', 'SHA')
+        end
+
+      if auth
+        key = key.encode('binary').ljust(RbNaCl::HMAC.const_get(auth).key_bytes, "\0")
+        return RbNaCl::HMAC.const_get(auth).verify(key, signature.encode('binary'), signing_input.encode('binary'))
+      end
+    end
+
+    secure_compare(signature, sign_hmac(algorithm, signing_input, key))
+  rescue => e
+    return false if defined?(RbNaCl) && e.is_a?(RbNaCl::BadAuthenticatorError)
   end
 
   def base64url_encode(str)
@@ -153,16 +193,20 @@ module JWT
     [header['alg'], key]
   end
 
-  def verify_signature(algo, key, signing_input, signature)
-    if %w(HS256 HS384 HS512).include?(algo)
-      fail(JWT::VerificationError, 'Signature verification raised') unless secure_compare(signature, sign_hmac(algo, signing_input, key))
-    elsif %w(RS256 RS384 RS512).include?(algo)
-      fail(JWT::VerificationError, 'Signature verification raised') unless verify_rsa(algo, key, signing_input, signature)
-    elsif %w(ES256 ES384 ES512).include?(algo)
-      fail(JWT::VerificationError, 'Signature verification raised') unless verify_ecdsa(algo, key, signing_input, signature)
-    else
-      fail JWT::VerificationError, 'Algorithm not supported'
-    end
+  def verify_signature(algo, *args)
+    verify =
+      case algo
+      when 'HS256', 'HS384', 'HS512', 'HS512256'
+        :verify_hmac
+      when 'RS256', 'RS384', 'RS512'
+        :verify_rsa
+      when 'ES256', 'ES384', 'ES512'
+        :verify_ecdsa
+      else
+        fail JWT::VerificationError, 'Algorithm not supported'
+      end
+
+    fail(JWT::VerificationError, 'Signature verification raised') unless send(verify, algo, *args)
   rescue OpenSSL::PKey::PKeyError
     raise JWT::VerificationError, 'Signature verification raised'
   ensure
