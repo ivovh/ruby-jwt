@@ -32,6 +32,8 @@ module JWT
         :sign_rsa
       when 'ES256', 'ES384', 'ES512'
         :sign_ecdsa
+      when 'ED255'
+        :sign_ed25519
       else
         fail NotImplementedError, 'Unsupported signing method'
       end
@@ -53,6 +55,18 @@ module JWT
     asn1_to_raw(private_key.dsa_sign_asn1(digest.digest(msg)), private_key)
   end
 
+  def sign_ed25519(algorithm, msg, private_key)
+    unless defined?(RbNaCl)
+      fail IncorrectAlgorithm, "RbNaCl needed for #{algorithm}"
+    end
+    if private_key.size != 32
+      fail IncorrectAlgorithm, "Incorrect key size #{private_key.size} for #{algorithm}"
+    end
+
+    signing_key = RbNaCl::SigningKey.new(private_key)
+    signing_key.sign(msg)
+  end
+
   def verify_rsa(algorithm, public_key, signing_input, signature)
     public_key.verify(OpenSSL::Digest.new(algorithm.sub('RS', 'sha')), signature, signing_input)
   end
@@ -65,6 +79,20 @@ module JWT
 
     digest = OpenSSL::Digest.new(algorithm.sub('ES', 'sha'))
     public_key.dsa_verify_asn1(digest.digest(signing_input), raw_to_asn1(signature, public_key))
+  end
+
+  def verify_ed25519(algorithm, public_key, signing_input, signature)
+    unless defined?(RbNaCl)
+      fail IncorrectAlgorithm, "RbNaCl needed for #{algorithm}"
+    end
+    if public_key.size != 32
+      fail IncorrectAlgorithm, "Incorrect key size #{public_key.size} for #{algorithm}"
+    end
+
+    verify_key = RbNaCl::VerifyKey.new(public_key)
+    verify_key.verify(signature, signing_input)
+  rescue RbNaCl::BadSignatureError
+    return false
   end
 
   def sign_hmac(algorithm, msg, key)
@@ -202,6 +230,8 @@ module JWT
         :verify_rsa
       when 'ES256', 'ES384', 'ES512'
         :verify_ecdsa
+      when 'ED255'
+        :verify_ed25519
       else
         fail JWT::VerificationError, 'Algorithm not supported'
       end

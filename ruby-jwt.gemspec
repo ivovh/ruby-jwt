@@ -27,4 +27,5 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency 'simplecov-json'
   spec.add_development_dependency 'codeclimate-test-reporter'
   spec.add_development_dependency 'rbnacl'
+  spec.add_development_dependency 'rbnacl-libsodium'
 end
