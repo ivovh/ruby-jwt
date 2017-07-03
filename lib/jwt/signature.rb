@@ -15,6 +15,7 @@ module JWT
     HMAC_ALGORITHMS = %w(HS256 HS512256 HS384 HS512).freeze
     RSA_ALGORITHMS = %w(RS256 RS384 RS512).freeze
     ECDSA_ALGORITHMS = %w(ES256 ES384 ES512).freeze
+    NACL_ALGORITHMS = %w(ED255).freeze
 
     NAMED_CURVES = {
       'prime256v1' => 'ES256',
@@ -29,6 +30,8 @@ module JWT
         sign_rsa(algorithm, msg, key)
       elsif ECDSA_ALGORITHMS.include?(algorithm)
         sign_ecdsa(algorithm, msg, key)
+      elsif NACL_ALGORITHMS.include?(algorithm)
+        sign_nacl(algorithm, msg, key)
       else
         raise NotImplementedError, 'Unsupported signing method'
       end
@@ -41,6 +44,8 @@ module JWT
                    verify_rsa(algo, key, signing_input, signature)
                  elsif ECDSA_ALGORITHMS.include?(algo)
                    verify_ecdsa(algo, key, signing_input, signature)
+                 elsif NACL_ALGORITHMS.include?(algo)
+                   verify_nacl(algo, key, signing_input, signature)
                  else
                    raise JWT::VerificationError, 'Algorithm not supported'
                  end
@@ -78,6 +83,18 @@ module JWT
       end
     end
 
+    def sign_nacl(algorithm, msg, key)
+      unless defined?(RbNaCl)
+        raise IncorrectAlgorithm, "RbNaCl needed for #{algorithm}"
+      end
+      if key.size != 32
+        raise IncorrectAlgorithm, "Incorrect key size #{key.size} for #{algorithm}"
+      end
+
+      signing_key = RbNaCl::SigningKey.new(key)
+      signing_key.sign(msg)
+    end
+
     def verify_rsa(algorithm, public_key, signing_input, signature)
       public_key.verify(OpenSSL::Digest.new(algorithm.sub('RS', 'sha')), signature, signing_input)
     end
@@ -103,6 +120,20 @@ module JWT
       else
         secure_compare(signature, sign_hmac(algorithm, signing_input, public_key))
       end
+    end
+
+    def verify_nacl(algorithm, public_key, signing_input, signature)
+      unless defined?(RbNaCl)
+        raise IncorrectAlgorithm, "RbNaCl needed for #{algorithm}"
+      end
+      if public_key.size != 32
+        raise IncorrectAlgorithm, "Incorrect key size #{public_key.size} for #{algorithm}"
+      end
+
+      verify_key = RbNaCl::VerifyKey.new(public_key)
+      verify_key.verify(signature, signing_input)
+    rescue RbNaCl::BadSignatureError
+      return false
     end
 
     def asn1_to_raw(signature, public_key)

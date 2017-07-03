@@ -29,7 +29,9 @@ describe JWT do
       'RS512' => 'eyJhbGciOiJSUzUxMiJ9.eyJ1c2VyX2lkIjoic29tZUB1c2VyLnRsZCJ9.LIIAUEuCkGNdpYguOO5LoW4rZ7ED2POJrB0pmEAAchyTdIK4HKh1jcLxc6KyGwZv40njCgub3y72q6vcQTn7oD0zWFCVQRIDW1911Ii2hRNHuigiPUnrnZh1OQ6z65VZRU6GKs8omoBGU9vrClBU0ODqYE16KxYmE_0n4Xw2h3D_L1LF0IAOtDWKBRDa3QHwZRM9sHsHNsBuD5ye9KzDYN1YALXj64LBfA-DoCKfpVAm9NkRPOyzjR2X2C3TomOSJgqWIVHJucudKDDAZyEbO4RA5pI-UFYy1370p9bRajvtDyoBuLDCzoSkMyQ4L2DnLhx5CbWcnD7Cd3GUmnjjTA',
       'ES256' => '',
       'ES384' => '',
-      'ES512' => ''
+      'ES512' => '',
+      'ED255_private' => JWT::Decode.base64url_decode(File.read(File.join(CERT_PATH, 'ed255-private.key'))),
+      'ED255_public' => JWT::Decode.base64url_decode(File.read(File.join(CERT_PATH, 'ed255-public.key')))
     }
   end
 
@@ -131,6 +133,42 @@ describe JWT do
       end
 
       let(:wrong_key) { OpenSSL::PKey.read(File.read(File.join(CERT_PATH, 'ec256-wrong-public.pem'))) }
+
+      it 'should generate a valid token' do
+        jwt_payload, header = JWT.decode data[alg], data["#{alg}_public"], true, algorithm: alg
+
+        expect(header['alg']).to eq alg
+        expect(jwt_payload).to eq payload
+      end
+
+      it 'should decode a valid token' do
+        jwt_payload, header = JWT.decode data[alg], data["#{alg}_public"], true, algorithm: alg
+
+        expect(header['alg']).to eq alg
+        expect(jwt_payload).to eq payload
+      end
+
+      it 'wrong key should raise JWT::DecodeError' do
+        expect do
+          JWT.decode data[alg], wrong_key
+        end.to raise_error JWT::DecodeError
+      end
+
+      it 'wrong key and verify = false should not raise JWT::DecodeError' do
+        expect do
+          JWT.decode data[alg], wrong_key, false
+        end.not_to raise_error
+      end
+    end
+  end
+
+  %w(ED255).each do |alg|
+    context "alg: #{alg}" do
+      before(:each) do
+        data[alg] = JWT.encode payload, data["#{alg}_private"], alg
+      end
+
+      let(:wrong_key) { JWT::Decode.base64url_decode(File.read(File.join(CERT_PATH, 'ed255-wrong.key'))) }
 
       it 'should generate a valid token' do
         jwt_payload, header = JWT.decode data[alg], data["#{alg}_public"], true, algorithm: alg
