@@ -1,5 +1,6 @@
 # JWT
 
+[![Gem Version](https://badge.fury.io/rb/jwt.svg)](https://badge.fury.io/rb/jwt)
 [![Build Status](https://travis-ci.org/jwt/ruby-jwt.svg)](https://travis-ci.org/jwt/ruby-jwt)
 [![Code Climate](https://codeclimate.com/github/jwt/ruby-jwt/badges/gpa.svg)](https://codeclimate.com/github/jwt/ruby-jwt)
 [![Test Coverage](https://codeclimate.com/github/jwt/ruby-jwt/badges/coverage.svg)](https://codeclimate.com/github/jwt/ruby-jwt/coverage)
@@ -63,7 +64,7 @@ puts decoded_token
 **HMAC** (default: HS256)
 
 * HS256 - HMAC using SHA-256 hash algorithm (default)
-* HS512256 - HMAC using SHA-512/256 hash algorithm (only available with RbNaCl; see note below)
+* HS512256 - HMAC using SHA-512-256 hash algorithm (only available with RbNaCl; see note below)
 * HS384 - HMAC using SHA-384 hash algorithm
 * HS512 - HMAC using SHA-512 hash algorithm
 
@@ -85,10 +86,10 @@ decoded_token = JWT.decode token, hmac_secret, true, { :algorithm => 'HS256' }
 puts decoded_token
 ```
 
-Note: If [RbNaCl](https://github.com/cryptosphere/rbnacl) is loadable, ruby-jwt will use it for HMAC-SHA256, HMAC-SHA512/256, and HMAC-SHA512. RbNaCl enforces a maximum key size of 32 bytes for these algorithms.
+Note: If [RbNaCl](https://github.com/cryptosphere/rbnacl) is loadable, ruby-jwt will use it for HMAC-SHA256, HMAC-SHA512-256, and HMAC-SHA512. RbNaCl enforces a maximum key size of 32 bytes for these algorithms.
 
 [RbNaCl](https://github.com/cryptosphere/rbnacl) requires
-[libsodium](https://github.com/jedisct1/libsodium), it can installed
+[libsodium](https://github.com/jedisct1/libsodium), it can be installed
 on MacOS with `brew install libsodium`.
 
 **RSA**
@@ -276,6 +277,8 @@ end
 From [Oauth JSON Web Token 4.1.1. "iss" (Issuer) Claim](https://tools.ietf.org/html/rfc7519#section-4.1.1):
 
 > The `iss` (issuer) claim identifies the principal that issued the JWT. The processing of this claim is generally application specific. The `iss` value is a case-sensitive string containing a ***StringOrURI*** value. Use of this claim is OPTIONAL.
+
+You can pass multiple allowed issuers as an Array, verification will pass if one of them matches the `iss` value in the payload.
 
 ```ruby
 iss = 'My Awesome Company Inc. or https://my.awesome.website/'
