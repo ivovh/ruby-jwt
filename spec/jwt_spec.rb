@@ -194,13 +194,13 @@ describe JWT do
 
       it 'wrong key should raise JWT::DecodeError' do
         expect do
-          JWT.decode data[alg], wrong_key
+          JWT.decode data[alg], wrong_key, true, algorithm: 'ED255'
         end.to raise_error JWT::DecodeError
       end
 
       it 'wrong key and verify = false should not raise JWT::DecodeError' do
         expect do
-          JWT.decode data[alg], wrong_key, false
+          JWT.decode data[alg], wrong_key, false, algorithm: 'ED255'
         end.not_to raise_error
       end
     end

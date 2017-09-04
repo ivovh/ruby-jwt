@@ -1,5 +1,7 @@
 # frozen_string_literal: true
+
 require 'json'
+require 'zlib'
 
 # JWT::Decode module
 module JWT
@@ -7,20 +9,27 @@ module JWT
   class Decode
     attr_reader :header, :payload, :signature
 
-    def self.base64url_decode(str)
+    def self.base64url_decode(str, algorithm: nil)
       str += '=' * (4 - str.length.modulo(4))
-      Base64.decode64(str.tr('-_', '+/'))
+      output = Base64.decode64(str.tr('-_', '+/'))
+      output = decompress(output) if algorithm == 'ED255'
+      output
     end
 
-    def initialize(jwt, verify)
+    def self.decompress(str)
+      Zlib::Inflate.new(-Zlib::MAX_WBITS).inflate(str)
+    end
+
+    def initialize(jwt, verify, algorithm: nil)
       @jwt = jwt
       @verify = verify
+      @algorithm = algorithm
     end
 
     def decode_segments
       header_segment, payload_segment, crypto_segment = raw_segments(@jwt, @verify)
       @header, @payload = decode_header_and_payload(header_segment, payload_segment)
-      @signature = Decode.base64url_decode(crypto_segment.to_s) if @verify
+      @signature = Decode.base64url_decode(crypto_segment.to_s, algorithm: @algorithm) if @verify
       signing_input = [header_segment, payload_segment].join('.')
       [@header, @payload, @signature, signing_input]
     end
@@ -35,8 +44,8 @@ module JWT
     end
 
     def decode_header_and_payload(header_segment, payload_segment)
-      header = JSON.parse(Decode.base64url_decode(header_segment))
-      payload = JSON.parse(Decode.base64url_decode(payload_segment))
+      header = JSON.parse(Decode.base64url_decode(header_segment, algorithm: @algorithm))
+      payload = JSON.parse(Decode.base64url_decode(payload_segment, algorithm: @algorithm))
       [header, payload]
     rescue JSON::ParserError
       raise JWT::DecodeError, 'Invalid segment encoding'

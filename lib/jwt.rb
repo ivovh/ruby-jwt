@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 require 'base64'
 require 'jwt/decode'
 require 'jwt/default_options'
@@ -33,7 +34,7 @@ module JWT
 
     merged_options = DEFAULT_OPTIONS.merge(custom_options)
 
-    decoder = Decode.new jwt, verify
+    decoder = Decode.new jwt, verify, algorithm: merged_options.fetch(:algorithm, nil)
     header, payload, signature, signing_input = decoder.decode_segments
     decode_verify_signature(key, header, payload, signature, signing_input, merged_options, &keyfinder) if verify
 
