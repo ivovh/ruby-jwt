@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 require 'spec_helper'
 require 'jwt/verify'
 
@@ -9,7 +10,7 @@ module JWT
 
     context '.verify_aud(payload, options)' do
       let(:scalar_aud) { 'ruby-jwt-aud' }
-      let(:array_aud) { %w(ruby-jwt-aud test-aud ruby-ruby-ruby) }
+      let(:array_aud) { %w[ruby-jwt-aud test-aud ruby-ruby-ruby] }
       let(:scalar_payload) { base_payload.merge('aud' => scalar_aud) }
       let(:array_payload) { base_payload.merge('aud' => array_aud) }
 
@@ -43,7 +44,6 @@ module JWT
     end
 
     context '.verify_expiration(payload, options)' do
-      let(:leeway) { 10 }
       let(:payload) { base_payload.merge('exp' => (Time.now.to_i - 5)) }
 
       it 'must raise JWT::ExpiredSignature when the token has expired' do
@@ -66,6 +66,16 @@ module JWT
         expect do
           Verify.verify_expiration(payload, options)
         end.to raise_error JWT::ExpiredSignature
+      end
+
+      context 'when leeway is not specified' do
+        let(:options) { {} }
+
+        it 'used a default leeway of 0' do
+          expect do
+            Verify.verify_expiration(payload, options)
+          end.to raise_error JWT::ExpiredSignature
+        end
       end
     end
 
